@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>دردشة</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F6F8B">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#EEF3F5;--card:#fff;--ink:#14232B;--mute:#5B6B73;--line:#D3DDE2;--accent:#1F6F8B;--on:#fff;--err:#B3261E;--mine:#D4ECF4;
@@ -159,5 +163,6 @@ $("back").onclick=()=>{if(unsub){unsub();unsub=null}showHome()};
 $("pdf").onclick=()=>window.print();
 $("out").onclick=async()=>{if(unsub){unsub();unsub=null}me=null;await signOut(auth)};
 </script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </body>
 </html>
