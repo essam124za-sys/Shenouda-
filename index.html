@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>دردشة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF3F5;--card:#fff;--ink:#14232B;--mute:#5B6B73;--line:#D3DDE2;--accent:#1F6F8B;--on:#fff;--err:#B3261E;--mine:#D4ECF4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0F1A1F;--card:#17262D;--ink:#E8F0F3;--mute:#9DB0B8;--line:#2B3F48;--accent:#5BB4D1;--on:#08171D;--err:#FF8A80;--mine:#1E4452}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Cairo,system-ui,sans-serif}
+.hidden{display:none!important}
+.card{width:calc(100% - 40px);max-width:380px;margin:20px auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+h1{margin:0 0 6px;font-size:26px;font-weight:800}
+p.sub{margin:0 0 18px;color:var(--mute);font-size:15px}
+label{display:block;font-weight:600;margin:14px 0 6px;font-size:15px}
+input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:17px}
+input:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.num{direction:ltr;text-align:right}
+.err{color:var(--err);min-height:22px;margin:10px 0 0;font-size:14px}
+.note{color:var(--mute);font-size:13px;margin:12px 0 0}
+button{padding:13px 16px;border:0;border-radius:10px;background:var(--accent);color:var(--on);font:inherit;font-weight:800;font-size:16px;cursor:pointer}
+.full{width:100%;margin-top:10px}
+.ghost{background:transparent;color:var(--mute);border:1px solid var(--line);font-weight:600}
+#app{display:flex;flex-direction:column;height:100%;max-width:560px;margin:0 auto}
+#top{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+#top b{font-size:18px}
+.sm{padding:8px 14px;font-size:14px}
+.pad{padding:16px}
+.row{display:flex;gap:8px}
+.rc{display:block;width:100%;text-align:right;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:600}
+#chat{display:flex;flex-direction:column;flex:1;min-height:0}
+#msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:80%;padding:9px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);align-self:flex-start;white-space:pre-wrap;overflow-wrap:anywhere}
+.m.me{align-self:flex-end;background:var(--mine)}
+.m small{display:block;color:var(--mute);font-size:11px;margin-top:3px}
+#bar{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--card)}
+@media print{#top,#bar{display:none}html,body,#app{height:auto}#msgs{overflow:visible}}
+</style>
+</head>
+<body>
+<main id="auth" class="card hidden">
+  <h1>أهلاً بيك</h1>
+  <p class="sub">سجّل بالاسم والرقم والرقم السري. لو مسجل قبل كده، اكتب نفس بياناتك وهترجع لمحادثاتك.</p>
+  <label for="name">الاسم</label>
+  <input id="name" autocomplete="off" maxlength="30">
+  <label for="phone">رقم الموبايل</label>
+  <input id="phone" class="num" inputmode="numeric" autocomplete="off" maxlength="15">
+  <label for="pin">رقم سري (٤ أرقام)</label>
+  <input id="pin" class="num" inputmode="numeric" type="password" autocomplete="off" maxlength="4">
+  <p class="err" id="err" role="alert"></p>
+  <button id="ok" class="full">موافق</button>
+  <p class="note">المشرف يراجع المحادثات المحفوظة للحماية من الإساءة.</p>
+</main>
+
+<div id="app" class="hidden">
+  <header id="top"><b id="title"></b><button id="back" class="sm ghost hidden">رجوع</button></header>
+  <section id="home" class="pad">
+    <label for="peer">رقم اللي عاوز تكلمه</label>
+    <div class="row"><input id="peer" class="num" inputmode="numeric" maxlength="15"><button id="go">فتح</button></div>
+    <p class="err" id="e2" role="alert"></p>
+    <div id="recent"></div>
+    <button id="out" class="full ghost">تسجيل الخروج</button>
+  </section>
+  <section id="chat" class="hidden">
+    <div id="msgs"></div>
+    <div id="bar"><input id="txt" placeholder="اكتب رسالة" autocomplete="off" maxlength="2000"><button id="send">إرسال</button><button id="pdf" class="ghost" title="حفظ PDF">PDF</button></div>
+  </section>
+</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,signInAnonymously,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,setDoc,writeBatch,collection,addDoc,query,orderBy,onSnapshot,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app=initializeApp({apiKey:"AIzaSyDjcXDMrxRWg9_ONbdYZziSBtVOSnjWY1Q",authDomain:"chat-a99b1.firebaseapp.com",projectId:"chat-a99b1",storageBucket:"chat-a99b1.firebasestorage.app",messagingSenderId:"457230137532",appId:"1:457230137532:web:f67a33493231010749f8b9"});
+const auth=getAuth(app), db=getFirestore(app);
+const $=i=>document.getElementById(i);
+const toEn=s=>s.replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
+async function hash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dardasha:"+s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+let uid=null, me=null, unsub=null;
+const getR=()=>{try{return JSON.parse(localStorage.getItem("recent"))||[]}catch(e){return[]}};
+const addR=(p,n)=>{try{const l=getR().filter(x=>x.p!==p);l.unshift({p,n});localStorage.setItem("recent",JSON.stringify(l.slice(0,15)))}catch(e){}};
+
+function showAuth(){$("auth").classList.remove("hidden");$("app").classList.add("hidden")}
+function showHome(){
+  $("auth").classList.add("hidden");$("app").classList.remove("hidden");
+  $("home").classList.remove("hidden");$("chat").classList.add("hidden");$("back").classList.add("hidden");
+  $("title").textContent="أهلاً يا "+me.name;
+  const r=$("recent");r.textContent="";
+  getR().forEach(x=>{const b=document.createElement("button");b.className="rc";b.textContent=x.n+" ("+x.p+")";b.onclick=()=>openChat(x.p,x.n);r.appendChild(b)});
+}
+
+onAuthStateChanged(auth,async u=>{
+  if(!u){await signInAnonymously(auth);return}
+  uid=u.uid;
+  try{
+    const s=await getDoc(doc(db,"uids",uid));
+    if(s.exists()){const p=s.data().phone;const n=await getDoc(doc(db,"names",p));me={phone:p,name:n.exists()?n.data().name:p};showHome();return}
+  }catch(e){}
+  showAuth();
+});
+
+$("ok").onclick=async()=>{
+  const name=$("name").value.trim(),phone=toEn($("phone").value.trim()),pin=toEn($("pin").value.trim()),e=$("err");
+  e.textContent="";
+  if(!name){e.textContent="اكتب اسمك.";return}
+  if(!/^\d{8,15}$/.test(phone)){e.textContent="اكتب رقم موبايل صحيح، أرقام بس.";return}
+  if(!/^\d{4}$/.test(pin)){e.textContent="الرقم السري لازم ٤ أرقام.";return}
+  $("ok").disabled=true;
+  let exists=false;
+  try{
+    const nm=await getDoc(doc(db,"names",phone));exists=nm.exists();
+    const ph=await hash(phone+":"+pin);
+    if(exists){await setDoc(doc(db,"uids",uid),{phone,pinHash:ph});me={phone,name:nm.data().name}}
+    else{const b=writeBatch(db);b.set(doc(db,"names",phone),{name});b.set(doc(db,"pins",phone),{pinHash:ph});b.set(doc(db,"uids",uid),{phone,pinHash:ph});await b.commit();me={phone,name}}
+    showHome();
+  }catch(x){e.textContent=exists?"الرقم ده مستخدم والرقم السري غلط.":"تعذّر التسجيل. جرّب تاني."}
+  $("ok").disabled=false;
+};
+
+$("go").onclick=async()=>{
+  const p=toEn($("peer").value.trim()),e=$("e2");e.textContent="";
+  if(!/^\d{8,15}$/.test(p)){e.textContent="اكتب رقم صحيح.";return}
+  if(p===me.phone){e.textContent="ده رقمك إنت.";return}
+  try{const n=await getDoc(doc(db,"names",p));if(!n.exists()){e.textContent="الرقم ده مش مسجل في التطبيق.";return}openChat(p,n.data().name)}
+  catch(x){e.textContent="حصلت مشكلة. جرّب تاني."}
+};
+
+function openChat(p,n){
+  addR(p,n);
+  $("home").classList.add("hidden");$("chat").classList.remove("hidden");$("back").classList.remove("hidden");
+  $("title").textContent=n;
+  const id=[me.phone,p].sort().join("_"),box=$("msgs");box.textContent="";
+  if(unsub)unsub();
+  unsub=onSnapshot(query(collection(db,"chats",id,"messages"),orderBy("t")),s=>{
+    box.textContent="";
+    s.forEach(d=>{
+      const m=d.data(),el=document.createElement("div");
+      el.className="m"+(m.from===me.phone?" me":"");
+      el.textContent=m.text;
+      const t=document.createElement("small");
+      t.textContent=m.t?m.t.toDate().toLocaleString("ar-EG",{hour:"2-digit",minute:"2-digit",day:"numeric",month:"numeric"}):"";
+      el.appendChild(t);box.appendChild(el);
+    });
+    box.scrollTop=box.scrollHeight;
+  },()=>{box.textContent="تعذّر تحميل الرسائل."});
+  const send=async()=>{
+    const text=$("txt").value.trim();if(!text)return;$("txt").value="";
+    try{await addDoc(collection(db,"chats",id,"messages"),{from:me.phone,text,t:serverTimestamp()})}catch(x){$("txt").value=text}
+  };
+  $("send").onclick=send;
+  $("txt").onkeydown=ev=>{if(ev.key==="Enter")send()};
+}
+$("back").onclick=()=>{if(unsub){unsub();unsub=null}showHome()};
+$("pdf").onclick=()=>window.print();
+$("out").onclick=async()=>{if(unsub){unsub();unsub=null}me=null;await signOut(auth)};
+</script>
+</body>
+</html>
