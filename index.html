@@ -90,7 +90,7 @@ section{flex:1;min-height:0;display:flex;flex-direction:column}
 
   <section id="chatV" class="hidden">
     <div id="msgs"></div>
-    <div id="bar"><input id="txt" placeholder="اكتب رسالة" autocomplete="off" maxlength="2000"><button id="cam" class="ghost" aria-label="صورة">📷</button><input id="img" type="file" accept="image/*" class="hidden"><button id="send">إرسال</button><button id="pdf" class="ghost">PDF</button></div>
+    <div id="bar"><input id="txt" placeholder="اكتب رسالة" autocomplete="off" maxlength="2000"><button id="cam" class="ghost" aria-label="صورة">📷</button><input id="img" type="file" accept="image/*" class="hidden"><button id="send">إرسال</button></div>
   </section>
 
   <section id="setV" class="hidden pad set">
@@ -235,7 +235,7 @@ function permText(){$("nst").textContent=("Notification" in window)?(Notificatio
 $("gear").onclick=()=>{view("setV");$("title").textContent="الإعدادات";$("sname").textContent=me.name;permText()};
 $("back").onclick=()=>showList();
 $("notif").onclick=()=>OS(async o=>{await o.Notifications.requestPermission();permText()});
-$("pdf").onclick=()=>window.print();
+
 $("out").onclick=async()=>{stopChat();if(unsubI){unsubI();unsubI=null}OS(o=>o.logout());me=null;await signOut(auth)};
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
