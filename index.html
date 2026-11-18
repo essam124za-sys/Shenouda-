@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>دردشة</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+window.OneSignalDeferred=window.OneSignalDeferred||[];
+OneSignalDeferred.push(async function(OneSignal){
+  await OneSignal.init({appId:"28729780-cb74-4609-9698-5c7b61404955",serviceWorkerPath:"/Shenouda-/sw.js",serviceWorkerParam:{scope:"/Shenouda-/"},notifyButton:{enable:false}});
+});
+</script>
 <meta name="theme-color" content="#1F6F8B">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -67,6 +74,7 @@ button{padding:13px 16px;border:0;border-radius:10px;background:var(--accent);co
     <div class="row"><input id="peer" class="num" inputmode="numeric" maxlength="15"><button id="go">فتح</button></div>
     <p class="err" id="e2" role="alert"></p>
     <div id="recent"></div>
+    <button id="notif" class="full">🔔 تفعيل الإشعارات</button>
     <button id="out" class="full ghost">تسجيل الخروج</button>
   </section>
   <section id="chat" class="hidden">
@@ -85,6 +93,13 @@ const auth=getAuth(app), db=getFirestore(app);
 const $=i=>document.getElementById(i);
 const toEn=s=>s.replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
 async function hash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dardasha:"+s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+const PUSH_URL="";
+const OS=f=>{window.OneSignalDeferred=window.OneSignalDeferred||[];window.OneSignalDeferred.push(f)};
+async function notify(id,text){
+  if(!PUSH_URL)return;
+  try{const tk=await auth.currentUser.getIdToken();
+    fetch(PUSH_URL,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tk},body:JSON.stringify({chatId:id,text:text.slice(0,120)})})}catch(e){}
+}
 let uid=null, me=null, unsub=null;
 const getR=()=>{try{return JSON.parse(localStorage.getItem("recent"))||[]}catch(e){return[]}};
 const addR=(p,n)=>{try{const l=getR().filter(x=>x.p!==p);l.unshift({p,n});localStorage.setItem("recent",JSON.stringify(l.slice(0,15)))}catch(e){}};
@@ -94,6 +109,7 @@ function showHome(){
   $("auth").classList.add("hidden");$("app").classList.remove("hidden");
   $("home").classList.remove("hidden");$("chat").classList.add("hidden");$("back").classList.add("hidden");
   $("title").textContent="أهلاً يا "+me.name;
+  OS(o=>o.login(me.phone));
   const r=$("recent");r.textContent="";
   getR().forEach(x=>{const b=document.createElement("button");b.className="rc";b.textContent=x.n+" ("+x.p+")";b.onclick=()=>openChat(x.p,x.n);r.appendChild(b)});
 }
@@ -154,14 +170,15 @@ function openChat(p,n){
   },()=>{box.textContent="تعذّر تحميل الرسائل."});
   const send=async()=>{
     const text=$("txt").value.trim();if(!text)return;$("txt").value="";
-    try{await addDoc(collection(db,"chats",id,"messages"),{from:me.phone,text,t:serverTimestamp()})}catch(x){$("txt").value=text}
+    try{await addDoc(collection(db,"chats",id,"messages"),{from:me.phone,text,t:serverTimestamp()});notify(id,text)}catch(x){$("txt").value=text}
   };
   $("send").onclick=send;
   $("txt").onkeydown=ev=>{if(ev.key==="Enter")send()};
 }
 $("back").onclick=()=>{if(unsub){unsub();unsub=null}showHome()};
 $("pdf").onclick=()=>window.print();
-$("out").onclick=async()=>{if(unsub){unsub();unsub=null}me=null;await signOut(auth)};
+$("notif").onclick=()=>OS(async o=>{await o.Notifications.requestPermission()});
+$("out").onclick=async()=>{if(unsub){unsub();unsub=null}OS(o=>o.logout());me=null;await signOut(auth)};
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
 </body>
